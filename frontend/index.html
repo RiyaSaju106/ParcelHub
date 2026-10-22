@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101010">
+  <title>ParcelHub — Move Smarter</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="dashboard">
+  <header class="nav">
+    <a class="wordmark" href="index.html"><span class="logo-mark">P</span> parcelhub<span class="orange">.</span></a>
+    <nav class="nav-links">
+      <a class="nav-link active" href="index.html">Overview</a>
+      <a class="nav-link" href="parcels.html">Parcels</a>
+      <a class="nav-link" href="lockers.html">Lockers</a>
+      <a class="nav-link" href="incidents.html">Incidents</a>
+    </nav>
+    <a class="nav-cta" href="parcels.html">View parcels <span>↗</span></a>
+</header>
+
+  <main>
+    <section class="hero reveal">
+      <div class="hero-topline"><span>SMART LOGISTICS, REIMAGINED</span></div>
+      <h1>Every parcel.<br>Every move.<br><span class="orange">Under control.</span></h1>
+      <div class="hero-bottom">
+        <p>One connected space for parcels, smart lockers and seamless last-mile operations.</p>
+        <a href="#overview" class="circle-link" aria-label="Explore dashboard">↓</a>
+      </div>
+    </section>
+
+    <div class="marquee" aria-label="ParcelHub features">
+      <div class="marquee-track">
+        <span>SMARTER DELIVERIES <b>✳</b> REAL-TIME VISIBILITY <b>✳</b> LOCKER INTELLIGENCE <b>✳</b> BUILT TO MOVE <b>✳</b></span>
+        <span aria-hidden="true">SMARTER DELIVERIES <b>✳</b> REAL-TIME VISIBILITY <b>✳</b> LOCKER INTELLIGENCE <b>✳</b> BUILT TO MOVE <b>✳</b></span>
+      </div>
+    </div>
+
+    <section class="section" id="overview">
+      <div class="section-head reveal">
+        <div><span class="eyebrow">OPERATIONS AT A GLANCE</span><h2>Know your <span class="muted">numbers.</span></h2></div>
+        <span class="live-label"><i></i> LIVE DATABASE</span>
+      </div>
+
+      <div class="stats-grid">
+        <article class="stat-card reveal"><span class="stat-label">TOTAL PARCELS <span>↗</span></span><strong id="totalParcels">—</strong><p>Registered in the system</p><div class="stat-line"></div></article>
+        <article class="stat-card stat-orange reveal"><span class="stat-label">READY FOR PICKUP <span>↗</span></span><strong id="readyParcels">—</strong><p>Awaiting recipient collection</p><div class="stat-line"></div></article>
+        <article class="stat-card reveal"><span class="stat-label">SMART LOCKERS <span>↗</span></span><strong id="totalLockers">—</strong><p>Across the tech park</p><div class="stat-line"></div></article>
+        <article class="stat-card reveal"><span class="stat-label">AVAILABLE <span>↗</span></span><strong id="availableLockers">—</strong><p>Ready for assignment</p><div class="stat-line"></div></article>
+      </div>
+
+      <div class="section-head section-head-lower reveal">
+        <div><span class="eyebrow">THE LATEST MOVEMENT</span><h2>Parcel <span class="muted">activity.</span></h2></div>
+        <a class="text-link" href="parcels.html">All parcels <span>↗</span></a>
+      </div>
+      <div class="table-shell reveal">
+        <div class="table-scroll"><table><thead><tr><th>TRACKING ID</th><th>PARCEL</th><th>RECIPIENT</th><th>STATUS</th><th>RECEIVED</th></tr></thead><tbody id="parcelRows"><tr><td colspan="5" class="table-message">Loading parcel data…</td></tr></tbody></table></div>
+      </div>
+      <p class="data-note" id="dashboardMessage" aria-live="polite"></p>
+    </section>
+
+    <section class="closing reveal">
+      <span class="eyebrow">DESIGNED AROUND MOVEMENT</span>
+      <h2>Less friction.<br><span class="orange">More flow.</span></h2>
+      <a class="button-light" href="lockers.html">Explore smart lockers <span>↗</span></a>
+      <span class="closing-mark">PH.</span>
+    </section>
+  </main>
+
+  <footer class="footer"><a class="wordmark" href="index.html"><span class="logo-mark">P</span> parcelhub<span class="orange">.</span></a><span>SMART PARCEL & LOCKER MANAGEMENT</span><span>YOUR TECH PARK. IN MOTION.</span></footer>
+</body>
+</html>

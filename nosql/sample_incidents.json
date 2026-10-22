@@ -1,0 +1,20 @@
+[
+  {
+    "parcel_tracking_code": "PH-2026-0003",
+    "incident_type": "damaged_parcel",
+    "description": "Outer packaging was visibly damaged when received.",
+    "reported_by": "security.desk",
+    "severity": "medium",
+    "status": "open",
+    "created_at": { "$date": "2026-10-22T09:00:00Z" }
+  },
+  {
+    "parcel_tracking_code": "PH-2026-0002",
+    "incident_type": "delivery_exception",
+    "description": "Delivery was delayed and requires a follow-up.",
+    "reported_by": "receiving.desk",
+    "severity": "low",
+    "status": "investigating",
+    "created_at": { "$date": "2026-10-22T10:00:00Z" }
+  }
+]

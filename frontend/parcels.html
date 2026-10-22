@@ -1,0 +1,44 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101010">
+  <title>Parcels — ParcelHub</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="parcels">
+  <header class="nav">
+    <a class="wordmark" href="index.html"><span class="logo-mark">P</span> parcelhub<span class="orange">.</span></a>
+    <nav class="nav-links"><a class="nav-link" href="index.html">Overview</a><a class="nav-link active" href="parcels.html">Parcels</a><a class="nav-link" href="lockers.html">Lockers</a><a class="nav-link" href="incidents.html">Incidents</a></nav>
+    <span class="nav-tag">OPERATIONS / 02</span>
+  </header>
+
+  <main>
+    <section class="page-hero reveal">
+      <span class="eyebrow">PARCEL OPERATIONS</span>
+      <h1>Every parcel.<br><span class="orange">Accounted for.</span></h1>
+      <p>Search, inspect and track the parcels moving through your tech park.</p>
+    </section>
+
+    <div class="marquee"><div class="marquee-track"><span>TRACK EVERY DELIVERY <b>✳</b> KNOW WHAT MOVES <b>✳</b> NOTHING LOST IN TRANSIT <b>✳</b> TRACK EVERY DELIVERY <b>✳</b></span><span aria-hidden="true">TRACK EVERY DELIVERY <b>✳</b> KNOW WHAT MOVES <b>✳</b> NOTHING LOST IN TRANSIT <b>✳</b> TRACK EVERY DELIVERY <b>✳</b></span></div></div>
+
+    <section class="section">
+      <div class="section-head reveal"><div><span class="eyebrow">PARCEL DIRECTORY</span><h2>In the <span class="muted">system.</span></h2></div><span class="count-pill" id="parcelCount">— records</span></div>
+      <div class="toolbar reveal">
+        <label class="search-box"><span>⌕</span><input id="parcelSearch" type="search" placeholder="Search tracking code or recipient…" autocomplete="off"></label>
+        <label class="filter-label"><span>STATUS</span><select id="parcelFilter"><option value="all">All statuses</option><option value="received">Received</option><option value="stored">Stored</option><option value="ready_for_pickup">Ready for pickup</option><option value="delivered">Delivered</option></select></label>
+      </div>
+      <div class="table-shell reveal"><div class="table-scroll"><table><thead><tr><th>TRACKING ID</th><th>DESCRIPTION</th><th>RECIPIENT</th><th>STATUS</th><th>RECEIVED</th><th>DETAILS</th></tr></thead><tbody id="parcelRows"><tr><td colspan="6" class="table-message">Loading parcel data…</td></tr></tbody></table></div></div>
+      <p class="data-note" id="parcelMessage" aria-live="polite"></p>
+      <aside class="detail-panel reveal" id="parcelDetail" hidden>
+        <div class="detail-heading"><div><span class="eyebrow">PARCEL RECORD</span><h2 id="detailTracking">Parcel details</h2></div><button class="icon-button" id="closeDetail" aria-label="Close details">×</button></div>
+        <div class="detail-grid" id="detailContent"></div>
+      </aside>
+    </section>
+  </main>
+  <footer class="footer"><a class="wordmark" href="index.html"><span class="logo-mark">P</span> parcelhub<span class="orange">.</span></a><span>SMART PARCEL & LOCKER MANAGEMENT</span><a class="text-link" href="lockers.html">Next: Smart Lockers ↗</a></footer>
+</body>
+</html>
