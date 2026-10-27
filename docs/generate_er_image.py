@@ -1,0 +1,486 @@
+
+import os
+import subprocess
+
+html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ParcelHub — Entity Relationship Diagram</title>
+<style>
+  body {
+    margin: 0;
+    padding: 30px;
+    background: #0f1117;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #e6edf3;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .container {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 25px 35px 35px 35px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  }
+  h1 {
+    margin: 0 0 6px 0;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #ffffff;
+  }
+  h1 span { color: #ff6a21; }
+  .subtitle {
+    margin: 0 0 25px 0;
+    font-size: 13px;
+    color: #8b949e;
+  }
+  svg {
+    display: block;
+    overflow: visible;
+  }
+  /* Table Card Styles */
+  .table-card {
+    fill: #1c2128;
+    stroke: #30363d;
+    stroke-width: 1.5;
+    rx: 8;
+  }
+  .table-header-mysql {
+    fill: #1f3a5f;
+  }
+  .table-header-nosql {
+    fill: #134e35;
+  }
+  .table-title {
+    font-size: 14px;
+    font-weight: 700;
+    fill: #ffffff;
+    letter-spacing: 0.5px;
+  }
+  .table-badge {
+    font-size: 10px;
+    font-weight: 600;
+    fill: #58a6ff;
+  }
+  .table-badge-nosql {
+    font-size: 10px;
+    font-weight: 600;
+    fill: #3fb950;
+  }
+  .col-row-even {
+    fill: #161b22;
+  }
+  .col-row-odd {
+    fill: #1c2128;
+  }
+  .col-name {
+    font-size: 12px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    fill: #e6edf3;
+  }
+  .col-name-pk {
+    font-weight: 700;
+    fill: #ffbc42;
+  }
+  .col-name-fk {
+    font-weight: 600;
+    fill: #79c0ff;
+  }
+  .col-type {
+    font-size: 11px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    fill: #8b949e;
+  }
+  .key-badge-pk {
+    fill: #b08800;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .key-badge-fk {
+    fill: #1f6feb;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  /* Relationship Lines */
+  .rel-line {
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+  }
+  .rel-line-user { stroke: #e3b341; }
+  .rel-line-parcel { stroke: #ff7b72; }
+  .rel-line-locker { stroke: #a371f7; }
+  .rel-line-nosql { stroke: #3fb950; stroke-dasharray: 6,4; }
+  .cardinality-label {
+    font-size: 11px;
+    font-weight: 700;
+    fill: #c9d1d9;
+    paint-order: stroke;
+    stroke: #161b22;
+    stroke-width: 3px;
+    stroke-linecap: butt;
+    stroke-linejoin: miter;
+  }
+  .rel-tag {
+    font-size: 10px;
+    font-weight: 600;
+    fill: #8b949e;
+    paint-order: stroke;
+    stroke: #161b22;
+    stroke-width: 3px;
+  }
+  /* Legend */
+  .legend-box {
+    fill: #13171f;
+    stroke: #30363d;
+    stroke-width: 1;
+    rx: 6;
+  }
+  .legend-text {
+    font-size: 11px;
+    fill: #8b949e;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>ParcelHub<span>.</span> Entity-Relationship (ER) Architecture Diagram</h1>
+  <p class="subtitle">Complete Data Model: Users, Smart Lockers, Parcels, Locker Assignments, Deliveries, and Incident Reports</p>
+
+  <svg width="1340" height="880" viewBox="0 0 1340 880">
+    <defs>
+      <marker id="arrow-yellow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#e3b341" />
+      </marker>
+      <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#ff7b72" />
+      </marker>
+      <marker id="arrow-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#a371f7" />
+      </marker>
+      <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#3fb950" />
+      </marker>
+    </defs>
+
+    <!-- ================= RELATIONSHIP CONNECTIONS ================= -->
+
+    <!-- 1. USERS -> PARCELS (Recipient: 1 to N) -->
+    <path class="rel-line rel-line-user" d="M 360, 185 C 430, 185 450, 185 520, 185" marker-end="url(#arrow-yellow)" />
+    <text x="375" y="175" class="cardinality-label">1</text>
+    <text x="505" y="175" class="cardinality-label">N</text>
+    <text x="415" y="175" class="rel-tag">receives</text>
+
+    <!-- 2. USERS -> DELIVERIES (Courier: 1 to N) -->
+    <path class="rel-line rel-line-user" d="M 210, 100 C 210, 45 1060, 45 1060, 100" marker-end="url(#arrow-yellow)" />
+    <text x="218" y="70" class="cardinality-label">1</text>
+    <text x="1045" y="85" class="cardinality-label">N</text>
+    <text x="600" y="40" class="rel-tag">handles delivery</text>
+
+    <!-- 3. PARCELS -> DELIVERIES (1 to N) -->
+    <path class="rel-line rel-line-parcel" d="M 860, 205 C 920, 205 920, 205 980, 205" marker-end="url(#arrow-red)" />
+    <text x="875" y="195" class="cardinality-label">1</text>
+    <text x="965" y="195" class="cardinality-label">N</text>
+    <text x="900" y="195" class="rel-tag">logged in</text>
+
+    <!-- 4. PARCELS -> LOCKER_ASSIGNMENTS (1 to N) -->
+    <path class="rel-line rel-line-parcel" d="M 690, 360 C 690, 430 690, 470 690, 520" marker-end="url(#arrow-red)" />
+    <text x="700" y="380" class="cardinality-label">1</text>
+    <text x="700" y="505" class="cardinality-label">N</text>
+    <text x="705" y="445" class="rel-tag">assigned to</text>
+
+    <!-- 5. LOCKERS -> LOCKER_ASSIGNMENTS (1 to N) -->
+    <path class="rel-line rel-line-locker" d="M 360, 630 C 430, 630 450, 630 520, 630" marker-end="url(#arrow-purple)" />
+    <text x="375" y="620" class="cardinality-label">1</text>
+    <text x="505" y="620" class="cardinality-label">N</text>
+    <text x="420" y="620" class="rel-tag">allocated to</text>
+
+    <!-- 6. PARCELS -> INCIDENTS (1 to N via tracking_code) -->
+    <path class="rel-line rel-line-nosql" d="M 860, 260 C 930, 260 930, 580 980, 580" marker-end="url(#arrow-green)" />
+    <text x="875" y="250" class="cardinality-label">1</text>
+    <text x="965" y="570" class="cardinality-label">N</text>
+    <text x="895" y="415" class="rel-tag">ref tracking_code</text>
+
+
+    <!-- ================= ENTITY 1: USERS (MySQL) ================= -->
+    <g transform="translate(60, 100)">
+      <rect class="table-card" width="300" height="235" />
+      <path d="M 0,8 Q 0,0 8,0 L 292,0 Q 300,0 300,8 L 300,38 L 0,38 Z" class="table-header-mysql" />
+      <text x="16" y="24" class="table-title">USERS</text>
+      <text x="235" y="24" class="table-badge">MySQL</text>
+
+      <!-- Rows -->
+      <rect x="1" y="38" width="298" height="27" class="col-row-odd" />
+      <text x="16" y="56" class="key-badge-pk">PK</text>
+      <text x="42" y="56" class="col-name col-name-pk">user_id</text>
+      <text x="180" y="56" class="col-type">INT AUTO_INC</text>
+
+      <rect x="1" y="65" width="298" height="27" class="col-row-even" />
+      <text x="42" y="83" class="col-name">full_name</text>
+      <text x="180" y="83" class="col-type">VARCHAR(100)</text>
+
+      <rect x="1" y="92" width="298" height="27" class="col-row-odd" />
+      <text x="42" y="110" class="col-name">email</text>
+      <text x="180" y="110" class="col-type">VARCHAR(150) [UQ]</text>
+
+      <rect x="1" y="119" width="298" height="27" class="col-row-even" />
+      <text x="42" y="137" class="col-name">password_hash</text>
+      <text x="180" y="137" class="col-type">VARCHAR(255)</text>
+
+      <rect x="1" y="146" width="298" height="27" class="col-row-odd" />
+      <text x="42" y="164" class="col-name" style="fill:#ff925b; font-weight:700;">role (RBAC)</text>
+      <text x="180" y="164" class="col-type">ENUM(4 roles)</text>
+
+      <rect x="1" y="173" width="298" height="27" class="col-row-even" />
+      <text x="42" y="191" class="col-name">account_status</text>
+      <text x="180" y="191" class="col-type">ENUM('active',..)</text>
+
+      <rect x="1" y="200" width="298" height="34" class="col-row-odd" />
+      <text x="42" y="220" class="col-name">created_at</text>
+      <text x="180" y="220" class="col-type">TIMESTAMP</text>
+    </g>
+
+
+    <!-- ================= ENTITY 2: PARCELS (MySQL - Core Entity) ================= -->
+    <g transform="translate(520, 100)">
+      <rect class="table-card" width="340" height="260" style="stroke: #ff6a21; stroke-width: 2;" />
+      <path d="M 0,8 Q 0,0 8,0 L 332,0 Q 340,0 340,8 L 340,38 L 0,38 Z" fill="#7a2b0d" />
+      <text x="16" y="24" class="table-title">PARCELS</text>
+      <text x="260" y="24" class="table-badge" style="fill:#ff925b;">CORE TABLE</text>
+
+      <!-- Rows -->
+      <rect x="1" y="38" width="338" height="27" class="col-row-odd" />
+      <text x="16" y="56" class="key-badge-pk">PK</text>
+      <text x="42" y="56" class="col-name col-name-pk">parcel_id</text>
+      <text x="210" y="56" class="col-type">INT AUTO_INC</text>
+
+      <rect x="1" y="65" width="338" height="27" class="col-row-even" />
+      <text x="42" y="83" class="col-name" style="font-weight:700;">tracking_code</text>
+      <text x="210" y="83" class="col-type">VARCHAR(30) [UQ]</text>
+
+      <rect x="1" y="92" width="338" height="27" class="col-row-odd" />
+      <text x="16" y="110" class="key-badge-fk">FK</text>
+      <text x="42" y="110" class="col-name col-name-fk">recipient_user_id</text>
+      <text x="210" y="110" class="col-type">INT &rarr; USERS</text>
+
+      <rect x="1" y="119" width="338" height="27" class="col-row-even" />
+      <text x="42" y="137" class="col-name">description</text>
+      <text x="210" y="137" class="col-type">VARCHAR(255)</text>
+
+      <rect x="1" y="146" width="338" height="27" class="col-row-odd" />
+      <text x="42" y="164" class="col-name" style="fill:#3fb950; font-weight:700;">parcel_status</text>
+      <text x="210" y="164" class="col-type">ENUM(5 states)</text>
+
+      <rect x="1" y="173" width="338" height="27" class="col-row-even" />
+      <text x="42" y="191" class="col-name">received_at</text>
+      <text x="210" y="191" class="col-type">TIMESTAMP</text>
+
+      <rect x="1" y="200" width="338" height="58" class="col-row-odd" />
+      <text x="42" y="222" class="col-name" style="fill:#ff925b; font-weight:700;">picked_up_at</text>
+      <text x="210" y="222" class="col-type">TIMESTAMP [NULL]</text>
+      <text x="42" y="244" class="col-type" style="fill:#58a6ff;">* Updated by pickup workflow</text>
+    </g>
+
+
+    <!-- ================= ENTITY 3: DELIVERIES (MySQL) ================= -->
+    <g transform="translate(980, 100)">
+      <rect class="table-card" width="310" height="235" />
+      <path d="M 0,8 Q 0,0 8,0 L 302,0 Q 310,0 310,8 L 310,38 L 0,38 Z" class="table-header-mysql" />
+      <text x="16" y="24" class="table-title">DELIVERIES</text>
+      <text x="245" y="24" class="table-badge">MySQL</text>
+
+      <rect x="1" y="38" width="308" height="27" class="col-row-odd" />
+      <text x="16" y="56" class="key-badge-pk">PK</text>
+      <text x="42" y="56" class="col-name col-name-pk">delivery_id</text>
+      <text x="180" y="56" class="col-type">INT AUTO_INC</text>
+
+      <rect x="1" y="65" width="308" height="27" class="col-row-even" />
+      <text x="16" y="83" class="key-badge-fk">FK</text>
+      <text x="42" y="83" class="col-name col-name-fk">parcel_id</text>
+      <text x="180" y="83" class="col-type">INT &rarr; PARCELS</text>
+
+      <rect x="1" y="92" width="308" height="27" class="col-row-odd" />
+      <text x="16" y="110" class="key-badge-fk">FK</text>
+      <text x="42" y="110" class="col-name col-name-fk">courier_user_id</text>
+      <text x="180" y="110" class="col-type">INT &rarr; USERS</text>
+
+      <rect x="1" y="119" width="308" height="27" class="col-row-even" />
+      <text x="42" y="137" class="col-name">delivery_status</text>
+      <text x="180" y="137" class="col-type">ENUM(5 states)</text>
+
+      <rect x="1" y="146" width="308" height="27" class="col-row-odd" />
+      <text x="42" y="164" class="col-name">received_at</text>
+      <text x="180" y="164" class="col-type">TIMESTAMP</text>
+
+      <rect x="1" y="173" width="308" height="27" class="col-row-even" />
+      <text x="42" y="191" class="col-name">delivered_at</text>
+      <text x="180" y="191" class="col-type">TIMESTAMP [NULL]</text>
+
+      <rect x="1" y="200" width="308" height="34" class="col-row-odd" />
+      <text x="42" y="220" class="col-name" style="fill:#ff925b; font-weight:700;">picked_up_at</text>
+      <text x="180" y="220" class="col-type">TIMESTAMP [NULL]</text>
+    </g>
+
+
+    <!-- ================= ENTITY 4: LOCKERS (MySQL) ================= -->
+    <g transform="translate(60, 520)">
+      <rect class="table-card" width="300" height="210" />
+      <path d="M 0,8 Q 0,0 8,0 L 292,0 Q 300,0 300,8 L 300,38 L 0,38 Z" class="table-header-mysql" />
+      <text x="16" y="24" class="table-title">LOCKERS</text>
+      <text x="235" y="24" class="table-badge">MySQL</text>
+
+      <rect x="1" y="38" width="298" height="27" class="col-row-odd" />
+      <text x="16" y="56" class="key-badge-pk">PK</text>
+      <text x="42" y="56" class="col-name col-name-pk">locker_id</text>
+      <text x="180" y="56" class="col-type">INT AUTO_INC</text>
+
+      <rect x="1" y="65" width="298" height="27" class="col-row-even" />
+      <text x="42" y="83" class="col-name" style="font-weight:700;">locker_code</text>
+      <text x="180" y="83" class="col-type">VARCHAR(20) [UQ]</text>
+
+      <rect x="1" y="92" width="298" height="27" class="col-row-odd" />
+      <text x="42" y="110" class="col-name">location</text>
+      <text x="180" y="110" class="col-type">VARCHAR(100)</text>
+
+      <rect x="1" y="119" width="298" height="27" class="col-row-even" />
+      <text x="42" y="137" class="col-name">locker_size</text>
+      <text x="180" y="137" class="col-type">ENUM(s,m,l)</text>
+
+      <rect x="1" y="146" width="298" height="27" class="col-row-odd" />
+      <text x="42" y="164" class="col-name" style="fill:#3fb950; font-weight:700;">locker_status</text>
+      <text x="180" y="164" class="col-type">ENUM(available,..)</text>
+
+      <rect x="1" y="173" width="298" height="36" class="col-row-even" />
+      <text x="42" y="193" class="col-name">created_at</text>
+      <text x="180" y="193" class="col-type">TIMESTAMP</text>
+    </g>
+
+
+    <!-- ================= ENTITY 5: LOCKER_ASSIGNMENTS (MySQL - Junction Table) ================= -->
+    <g transform="translate(520, 520)">
+      <rect class="table-card" width="340" height="210" />
+      <path d="M 0,8 Q 0,0 8,0 L 332,0 Q 340,0 340,8 L 340,38 L 0,38 Z" class="table-header-mysql" />
+      <text x="16" y="24" class="table-title">LOCKER_ASSIGNMENTS</text>
+      <text x="270" y="24" class="table-badge">MySQL</text>
+
+      <rect x="1" y="38" width="338" height="27" class="col-row-odd" />
+      <text x="16" y="56" class="key-badge-pk">PK</text>
+      <text x="42" y="56" class="col-name col-name-pk">assignment_id</text>
+      <text x="210" y="56" class="col-type">INT AUTO_INC</text>
+
+      <rect x="1" y="65" width="338" height="27" class="col-row-even" />
+      <text x="16" y="83" class="key-badge-fk">FK</text>
+      <text x="42" y="83" class="col-name col-name-fk">parcel_id</text>
+      <text x="210" y="83" class="col-type">INT &rarr; PARCELS</text>
+
+      <rect x="1" y="92" width="338" height="27" class="col-row-odd" />
+      <text x="16" y="110" class="key-badge-fk">FK</text>
+      <text x="42" y="110" class="col-name col-name-fk">locker_id</text>
+      <text x="210" y="110" class="col-type">INT &rarr; LOCKERS</text>
+
+      <rect x="1" y="119" width="338" height="27" class="col-row-even" />
+      <text x="42" y="137" class="col-name">assigned_at</text>
+      <text x="210" y="137" class="col-type">TIMESTAMP</text>
+
+      <rect x="1" y="146" width="338" height="63" class="col-row-odd" />
+      <text x="42" y="167" class="col-name" style="fill:#ff925b; font-weight:700;">released_at</text>
+      <text x="210" y="167" class="col-type">TIMESTAMP [NULL]</text>
+      <text x="42" y="192" class="col-type" style="fill:#58a6ff;">* Set to NOW() on parcel pickup</text>
+    </g>
+
+
+    <!-- ================= ENTITY 6: INCIDENTS (MongoDB Collection) ================= -->
+    <g transform="translate(980, 520)">
+      <rect class="table-card" width="310" height="235" />
+      <path d="M 0,8 Q 0,0 8,0 L 302,0 Q 310,0 310,8 L 310,38 L 0,38 Z" class="table-header-nosql" />
+      <text x="16" y="24" class="table-title">INCIDENTS</text>
+      <text x="235" y="24" class="table-badge-nosql">MongoDB</text>
+
+      <rect x="1" y="38" width="308" height="27" class="col-row-odd" />
+      <text x="16" y="56" class="key-badge-pk" style="fill:#3fb950;">ID</text>
+      <text x="42" y="56" class="col-name col-name-pk" style="fill:#3fb950;">_id</text>
+      <text x="190" y="56" class="col-type">ObjectId</text>
+
+      <rect x="1" y="65" width="308" height="27" class="col-row-even" />
+      <text x="16" y="83" class="key-badge-fk" style="fill:#3fb950;">REF</text>
+      <text x="42" y="83" class="col-name" style="font-weight:700;">parcel_tracking_code</text>
+      <text x="190" y="83" class="col-type">String</text>
+
+      <rect x="1" y="92" width="308" height="27" class="col-row-odd" />
+      <text x="42" y="110" class="col-name">incident_type</text>
+      <text x="190" y="110" class="col-type">String</text>
+
+      <rect x="1" y="119" width="308" height="27" class="col-row-even" />
+      <text x="42" y="137" class="col-name">description</text>
+      <text x="190" y="137" class="col-type">String</text>
+
+      <rect x="1" y="146" width="308" height="27" class="col-row-odd" />
+      <text x="42" y="164" class="col-name">reported_by</text>
+      <text x="190" y="164" class="col-type">String</text>
+
+      <rect x="1" y="173" width="308" height="27" class="col-row-even" />
+      <text x="42" y="191" class="col-name">severity</text>
+      <text x="190" y="191" class="col-type">low | med | high</text>
+
+      <rect x="1" y="200" width="308" height="34" class="col-row-odd" />
+      <text x="42" y="220" class="col-name">created_at</text>
+      <text x="190" y="220" class="col-type">Date</text>
+    </g>
+
+
+    <!-- ================= DIAGRAM LEGEND & WORKFLOW NOTE ================= -->
+    <g transform="translate(60, 775)">
+      <rect class="legend-box" width="1230" height="75" />
+      <text x="20" y="28" style="font-weight:700; fill:#ffffff; font-size:12px;">DIAGRAM LEGEND &amp; WORKFLOW NOTATION:</text>
+
+      <circle cx="28" cy="52" r="5" fill="#ffbc42" />
+      <text x="40" y="56" class="legend-text"><strong style="fill:#ffbc42;">PK</strong> = Primary Key</text>
+
+      <circle cx="160" cy="52" r="5" fill="#79c0ff" />
+      <text x="172" y="56" class="legend-text"><strong style="fill:#79c0ff;">FK</strong> = Foreign Key</text>
+
+      <line x1="280" y1="52" x2="310" y2="52" stroke="#e3b341" stroke-width="2.5" />
+      <text x="320" y="56" class="legend-text">1-to-Many Relational (MySQL)</text>
+
+      <line x1="510" y1="52" x2="540" y2="52" stroke="#3fb950" stroke-width="2.5" stroke-dasharray="4,3" />
+      <text x="550" y="56" class="legend-text">Polyglot Reference (MySQL &rarr; MongoDB)</text>
+
+      <rect x="815" y="42" width="16" height="16" fill="#7a2b0d" rx="3" />
+      <text x="840" y="56" class="legend-text"><strong style="fill:#ff925b;">Pickup Flow:</strong> updates parcels, deliveries &amp; sets locker available</text>
+    </g>
+
+  </svg>
+</div>
+</body>
+</html>
+"""
+
+html_path = r"C:\Users\admin\.gemini\antigravity\scratch\ParcelHub\docs\er_diagram.html"
+with open(html_path, "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print(f"HTML ER diagram generated at: {html_path}")
+
+# Render to PNG using Microsoft Edge headless
+edge_exe = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+png_path = r"C:\Users\admin\.gemini\antigravity\scratch\ParcelHub\docs\er_diagram.png"
+
+cmd = [
+    edge_exe,
+    "--headless",
+    "--disable-gpu",
+    "--screenshot=" + png_path,
+    "--window-size=1460,1050",
+    "file:///" + html_path.replace("\\", "/")
+]
+
+res = subprocess.run(cmd, capture_output=True, text=True)
+print("Edge return code:", res.returncode)
+if os.path.exists(png_path):
+    print("PNG generated successfully! Size:", os.path.getsize(png_path), "bytes")
+else:
+    print("PNG generation failed:", res.stderr)
