@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS parcels (
         'returned'
     ) NOT NULL DEFAULT 'received',
     received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    picked_up_at TIMESTAMP NULL DEFAULT NULL,
 
     CONSTRAINT fk_parcels_recipient
         FOREIGN KEY (recipient_user_id)

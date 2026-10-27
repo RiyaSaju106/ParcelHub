@@ -56,7 +56,8 @@ BEGIN
         WHERE locker_id = OLD.locker_id;
 
         UPDATE parcels
-        SET parcel_status = 'ready_for_pickup'
+        SET parcel_status = 'picked_up',
+            picked_up_at = CURRENT_TIMESTAMP
         WHERE parcel_id = OLD.parcel_id;
     END IF;
 END//

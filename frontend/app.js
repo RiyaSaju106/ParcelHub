@@ -1,4 +1,3 @@
-
 "use strict";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -8,6 +7,48 @@ const $ = (id) => document.getElementById(id);
 let allParcels = [];
 let allLockers = [];
 let allUsers = [];
+
+// Demo users mapped to roles for seamless live testing & RBAC demonstration
+const DEMO_USERS = {
+  admin: {
+    user_id: 1,
+    full_name: "Aarav Sharma",
+    email: "aarav.admin@example.com",
+    role: "admin"
+  },
+  security: {
+    user_id: 2,
+    full_name: "Meera Nair",
+    email: "meera.security@example.com",
+    role: "security"
+  },
+  courier: {
+    user_id: 3,
+    full_name: "Kiran Rao",
+    email: "kiran.courier@example.com",
+    role: "courier"
+  },
+  employee: {
+    user_id: 4,
+    full_name: "Ananya Iyer",
+    email: "ananya.employee@example.com",
+    role: "employee"
+  }
+};
+
+function getCurrentUser() {
+  try {
+    const saved = localStorage.getItem("parcelhub_user");
+    if (saved) return JSON.parse(saved);
+  } catch (_) {}
+  return DEMO_USERS.admin;
+}
+
+function setCurrentUser(role) {
+  const user = DEMO_USERS[role] || DEMO_USERS.admin;
+  localStorage.setItem("parcelhub_user", JSON.stringify(user));
+  return user;
+}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -41,10 +82,49 @@ function formatDate(value) {
 }
 
 async function apiGet(path) {
-  const response = await fetch(`${API_BASE}${path}`);
+  const user = getCurrentUser();
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      "X-User-Role": user.role,
+      "X-User-Email": user.email
+    }
+  });
 
   if (!response.ok) {
-    throw new Error(`${path} returned HTTP ${response.status}`);
+    let detail = `${path} returned HTTP ${response.status}`;
+    try {
+      const body = await response.json();
+      if (body.detail) detail = body.detail;
+    } catch (_) {}
+    const err = new Error(detail);
+    err.status = response.status;
+    throw err;
+  }
+
+  return response.json();
+}
+
+async function apiPost(path, payload) {
+  const user = getCurrentUser();
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-Role": user.role,
+      "X-User-Email": user.email
+    },
+    body: payload !== undefined ? JSON.stringify(payload) : null
+  });
+
+  if (!response.ok) {
+    let message = `${path} returned HTTP ${response.status}`;
+    try {
+      const body = await response.json();
+      message = body.detail || message;
+    } catch (_) {}
+    const err = new Error(message);
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();
@@ -78,6 +158,51 @@ function setupScrollReveals() {
   elements.forEach((element) => observer.observe(element));
 }
 
+function setupRoleSwitcher() {
+  const user = getCurrentUser();
+  const nav = document.querySelector(".nav");
+  if (!nav) return;
+
+  let switcher = $("roleSwitcher");
+  if (!switcher) {
+    switcher = document.createElement("div");
+    switcher.id = "roleSwitcher";
+    switcher.className = "role-switcher";
+    switcher.innerHTML = `
+      <span class="role-switcher-title">ROLE:</span>
+      <select id="roleSwitcherSelect" class="role-select" title="Switch active role for RBAC demonstration">
+        <option value="admin" ${user.role === "admin" ? "selected" : ""}>Admin (Aarav)</option>
+        <option value="security" ${user.role === "security" ? "selected" : ""}>Security (Meera)</option>
+        <option value="courier" ${user.role === "courier" ? "selected" : ""}>Courier (Kiran)</option>
+        <option value="employee" ${user.role === "employee" ? "selected" : ""}>Employee (Ananya)</option>
+      </select>
+    `;
+
+    const navTag = nav.querySelector(".nav-tag") || nav.querySelector(".nav-cta");
+    if (navTag) {
+      nav.insertBefore(switcher, navTag);
+    } else {
+      nav.appendChild(switcher);
+    }
+  }
+
+  const select = $("roleSwitcherSelect");
+  if (select) {
+    select.value = user.role;
+    select.onchange = async () => {
+      const selectedRole = select.value;
+      setCurrentUser(selectedRole);
+
+      const page = document.body.dataset.page;
+      if (page === "dashboard") await loadDashboard();
+      if (page === "parcels") await loadParcelPage();
+      if (page === "lockers") await loadLockerPage();
+      if (page === "incidents") await loadIncidents();
+      if (page === "users") await loadUsersPage();
+    };
+  }
+}
+
 function renderDashboardParcels(parcels) {
   const rows = $("parcelRows");
   if (!rows) return;
@@ -91,12 +216,12 @@ function renderDashboardParcels(parcels) {
   rows.innerHTML = recent.length
     ? recent.map((parcel) => `
       <tr>
-        <td>${escapeHtml(parcel.tracking_code)}</td>
+        <td><strong>${escapeHtml(parcel.tracking_code)}</strong></td>
         <td>${escapeHtml(parcel.description || "—")}</td>
         <td>
           ${escapeHtml(parcel.recipient_name || "—")}
           ${parcel.recipient_email
-            ? `<br><small>${escapeHtml(parcel.recipient_email)}</small>`
+            ? `<br><small class="muted-email">${escapeHtml(parcel.recipient_email)}</small>`
             : ""}
         </td>
         <td>${statusBadge(parcel.parcel_status)}</td>
@@ -151,13 +276,15 @@ function renderParcelDirectory() {
 
   const search = ($("parcelSearch")?.value || "").trim().toLowerCase();
   const status = $("parcelFilter")?.value || "all";
+  const user = getCurrentUser();
 
   const filtered = allParcels.filter((parcel) => {
     const searchable = [
       parcel.tracking_code,
       parcel.description,
       parcel.recipient_name,
-      parcel.recipient_email
+      parcel.recipient_email,
+      parcel.locker_code
     ].join(" ").toLowerCase();
 
     return searchable.includes(search) &&
@@ -167,23 +294,41 @@ function renderParcelDirectory() {
   $("parcelCount").textContent =
     `${filtered.length} of ${allParcels.length} records`;
 
+  const canPickupRole = ["admin", "security", "employee"].includes(user.role);
+
   rows.innerHTML = filtered.length
-    ? filtered.map((parcel) => `
+    ? filtered.map((parcel) => {
+        const isPickedUp = parcel.parcel_status === "picked_up";
+        const canPickupThisParcel = canPickupRole && !isPickedUp && parcel.parcel_status !== "returned" &&
+          (user.role !== "employee" || parcel.recipient_user_id === user.user_id || (parcel.recipient_email && parcel.recipient_email.toLowerCase() === user.email.toLowerCase()));
+
+        return `
       <tr>
-        <td>${escapeHtml(parcel.tracking_code)}</td>
+        <td><strong>${escapeHtml(parcel.tracking_code)}</strong></td>
         <td>${escapeHtml(parcel.description || "—")}</td>
         <td>
           ${escapeHtml(parcel.recipient_name || "—")}
           ${parcel.recipient_email
-            ? `<br><small>${escapeHtml(parcel.recipient_email)}</small>`
+            ? `<br><small class="muted-email">${escapeHtml(parcel.recipient_email)}</small>`
             : ""}
         </td>
         <td>${statusBadge(parcel.parcel_status)}</td>
+        <td>
+          ${parcel.locker_code
+            ? `<span class="locker-tag">▤ ${escapeHtml(parcel.locker_code)}</span>`
+            : `<span class="muted-dash">—</span>`}
+        </td>
         <td>${formatDate(parcel.received_at)}</td>
-        <td><button class="row-button" data-parcel-id="${escapeHtml(parcel.parcel_id)}">Inspect ↗</button></td>
+        <td class="action-cell">
+          <button class="row-button" data-parcel-id="${escapeHtml(parcel.parcel_id)}">Inspect ↗</button>
+          ${canPickupThisParcel
+            ? `<button class="row-button pickup-btn" data-pickup-id="${escapeHtml(parcel.parcel_id)}" data-tracking="${escapeHtml(parcel.tracking_code)}" title="Complete pickup workflow">Pick Up 📦</button>`
+            : ""}
+        </td>
       </tr>
-    `).join("")
-    : '<tr><td colspan="6" class="table-message">No parcels match your search.</td></tr>';
+    `;
+    }).join("")
+    : '<tr><td colspan="7" class="table-message">No parcels match your search.</td></tr>';
 }
 
 function showParcelDetails(id) {
@@ -201,38 +346,84 @@ function showParcelDetails(id) {
     ["Recipient", parcel.recipient_name],
     ["Email", parcel.recipient_email],
     ["Parcel status", String(parcel.parcel_status || "").replaceAll("_", " ")],
-    ["Received", formatDate(parcel.received_at)]
+    ["Assigned locker", parcel.locker_code ? `${parcel.locker_code} (${parcel.locker_location || "Smart Locker"})` : "None / Released"],
+    ["Received", formatDate(parcel.received_at)],
+    ["Picked up at", parcel.picked_up_at ? formatDate(parcel.picked_up_at) : "Not yet picked up"]
   ];
+
+  const user = getCurrentUser();
+  const isPickedUp = parcel.parcel_status === "picked_up";
+  const canPickupThisParcel = ["admin", "security", "employee"].includes(user.role) && !isPickedUp && parcel.parcel_status !== "returned" &&
+    (user.role !== "employee" || parcel.recipient_user_id === user.user_id || (parcel.recipient_email && parcel.recipient_email.toLowerCase() === user.email.toLowerCase()));
 
   $("detailContent").innerHTML = fields.map(([label, value]) => `
     <div class="detail-item">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(value || "—")}</strong>
     </div>
-  `).join("");
+  `).join("") + (canPickupThisParcel ? `
+    <div class="detail-actions" style="grid-column: 1 / -1; margin-top: 16px;">
+      <button type="button" class="pickup-btn-large" data-pickup-id="${escapeHtml(parcel.parcel_id)}" data-tracking="${escapeHtml(parcel.tracking_code)}">
+        Confirm Parcel Pickup 📦
+      </button>
+    </div>
+  ` : "");
 
   $("parcelDetail").hidden = false;
   $("parcelDetail").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+async function handleParcelPickup(parcelId, trackingCode) {
+  const user = getCurrentUser();
+  if (user.role === "courier") {
+    alert("Couriers are not authorized to pick up customer parcels.");
+    return;
+  }
+
+  const confirmPickup = confirm(
+    `Confirm pickup for parcel ${trackingCode}?\n\nThis will execute the pickup workflow:\n1. Update parcel status to 'picked_up'\n2. Set pickup timestamp\n3. Release the assigned locker and make it 'available'`
+  );
+  if (!confirmPickup) return;
+
+  try {
+    const result = await apiPost(`/api/parcels/${parcelId}/pickup`, {});
+    let msg = `Parcel ${trackingCode} picked up successfully!`;
+    if (result.locker_released) {
+      msg += `\nLocker ${result.locker_released.locker_code} has been RELEASED and is now AVAILABLE.`;
+    }
+    alert(msg);
+    await loadParcelPage();
+    if ($("parcelDetail") && !$("parcelDetail").hidden) {
+      showParcelDetails(parcelId);
+    }
+  } catch (error) {
+    console.error("Pickup failed:", error);
+    alert(`Pickup failed: ${error.message}`);
+  }
+}
+
 async function loadParcelPage() {
   const rows = $("parcelRows");
+  const user = getCurrentUser();
 
   try {
     allParcels = await apiGet("/api/parcels");
     renderParcelDirectory();
-    setMessage("parcelMessage", "Showing live records from ParcelHub.");
+    if (user.role === "employee") {
+      setMessage("parcelMessage", `Showing recipient parcels for ${user.full_name} (${user.role.toUpperCase()}).`);
+    } else {
+      setMessage("parcelMessage", `Showing live records from ParcelHub (Role: ${user.role.toUpperCase()}).`);
+    }
   } catch (error) {
     console.error("Parcel loading failed:", error);
 
     if (rows) {
-      rows.innerHTML = '<tr><td colspan="6" class="table-message">Could not load parcels. Check that the backend is running.</td></tr>';
+      rows.innerHTML = '<tr><td colspan="7" class="table-message">Could not load parcels. Check that the backend is running.</td></tr>';
     }
 
-    setMessage("parcelMessage", "Unable to connect to the ParcelHub API.");
+    setMessage("parcelMessage", error.message || "Unable to connect to the ParcelHub API.");
   }
 }
-
 
 function renderLockerDirectory() {
   const grid = $("lockerGrid");
@@ -281,7 +472,6 @@ function renderLockerDirectory() {
     `).join("")
     : '<div class="empty-state">No lockers match these filters.</div>';
 
-  // Open details when a locker card is clicked or keyboard-activated.
   grid.querySelectorAll("[data-locker-id]").forEach((card) => {
     const openDetails = () => {
       const locker = allLockers.find(
@@ -349,7 +539,7 @@ function showLockerDetails(locker) {
       ${locker.locker_status === "available"
         ? "This locker is available for assignment."
         : locker.locker_status === "occupied"
-          ? "This locker is currently in use."
+          ? "This locker is currently occupied by an active parcel assignment."
           : locker.locker_status === "maintenance"
             ? "This locker is unavailable while under maintenance."
             : "Check the locker status before assigning it."}
@@ -362,7 +552,6 @@ function showLockerDetails(locker) {
 
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
-
 
 async function loadLockerPage() {
   try {
@@ -385,7 +574,7 @@ async function loadLockerPage() {
     console.error("Locker loading failed:", error);
     $("lockerGrid").innerHTML =
       '<div class="empty-state">Unable to load lockers. Check the backend and refresh.</div>';
-    setMessage("lockerMessage", "Unable to connect to the ParcelHub API.");
+    setMessage("lockerMessage", error.message || "Unable to connect to the ParcelHub API.");
   }
 }
 
@@ -431,9 +620,9 @@ async function loadUsersPage() {
     console.error("User loading failed:", error);
     const rows = $("userRows");
     if (rows) {
-      rows.innerHTML = '<tr><td colspan="4" class="table-message">Unable to load users. Check the backend.</td></tr>';
+      rows.innerHTML = `<tr><td colspan="4" class="table-message">${escapeHtml(error.message || "Unable to load users.")}</td></tr>`;
     }
-    setMessage("usersMessage", "Unable to connect to the ParcelHub API.");
+    setMessage("usersMessage", error.message || "Unable to connect to the ParcelHub API.");
   }
 }
 
@@ -445,51 +634,28 @@ function setupInteractions() {
   $("userSearch")?.addEventListener("input", () => renderUsers(allUsers));
   $("userRoleFilter")?.addEventListener("change", () => renderUsers(allUsers));
 
+  // Delegate inspect and pickup clicks
   $("parcelRows")?.addEventListener("click", (event) => {
+    const pickupButton = event.target.closest("[data-pickup-id]");
+    if (pickupButton) {
+      handleParcelPickup(pickupButton.dataset.pickupId, pickupButton.dataset.tracking);
+      return;
+    }
+
     const button = event.target.closest("[data-parcel-id]");
     if (button) showParcelDetails(button.dataset.parcelId);
+  });
+
+  $("detailContent")?.addEventListener("click", (event) => {
+    const pickupButton = event.target.closest("[data-pickup-id]");
+    if (pickupButton) {
+      handleParcelPickup(pickupButton.dataset.pickupId, pickupButton.dataset.tracking);
+    }
   });
 
   $("closeDetail")?.addEventListener("click", () => {
     $("parcelDetail").hidden = true;
   });
-}
-
-async function startApp() {
-  setupScrollReveals();
-  setupInteractions();
-
-  const page = document.body.dataset.page;
-
-  if (page === "dashboard") await loadDashboard();
-  if (page === "parcels") await loadParcelPage();
-  if (page === "lockers") await loadLockerPage();
-  if (page === "users") await loadUsersPage();
-}
-
-document.addEventListener("DOMContentLoaded", startApp);
-
-async function apiPost(path, payload) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    let message = `${path} returned HTTP ${response.status}`;
-
-    try {
-      const body = await response.json();
-      message = body.detail || message;
-    } catch (_) {
-      // Keep the HTTP error message if the response isn't JSON.
-    }
-
-    throw new Error(message);
-  }
-
-  return response.json();
 }
 
 function renderIncidents(incidents) {
@@ -543,6 +709,45 @@ async function loadIncidents() {
   const list = $("incidentList");
   if (!list) return;
 
+  const user = getCurrentUser();
+  const form = $("incidentForm");
+  const formMsg = $("incidentFormMessage");
+
+  // RBAC Client check: Courier and Employee cannot access incidents
+  if (user.role === "courier" || user.role === "employee") {
+    if (form) {
+      form.querySelectorAll("input, select, textarea, button").forEach((el) => {
+        el.disabled = true;
+      });
+      if (formMsg) {
+        formMsg.innerHTML = `<span class="rbac-warning">🔒 Access Restricted: ${user.role.toUpperCase()} role cannot create incidents. Admin or Security required.</span>`;
+      }
+    }
+
+    list.innerHTML = `
+      <div class="rbac-restricted-box">
+        <div class="rbac-lock-icon">🔒</div>
+        <h3>Incident Access Restricted by RBAC</h3>
+        <p>The Incident Management module is restricted to <strong>Admin</strong> and <strong>Security</strong> personnel.</p>
+        <p>Your current active role is <strong class="badge ${escapeHtml(user.role)}">${escapeHtml(user.role.toUpperCase())}</strong>.</p>
+        <p class="data-note">To access incidents, switch your role to <strong>Admin</strong> or <strong>Security</strong> in the top navigation bar.</p>
+      </div>
+    `;
+    setMessage("incidentListMessage", `Access restricted for role '${user.role}'.`);
+    return;
+  }
+
+  // Role is Admin or Security: enable form
+  if (form) {
+    form.querySelectorAll("input, select, textarea, button").forEach((el) => {
+      el.disabled = false;
+    });
+    if (form.elements.reported_by) {
+      form.elements.reported_by.value = user.role === "security" ? "security.desk" : user.email;
+    }
+    if (formMsg) formMsg.textContent = "";
+  }
+
   list.innerHTML = '<p class="empty-state">Loading incidents…</p>';
 
   try {
@@ -551,8 +756,17 @@ async function loadIncidents() {
     setMessage("incidentListMessage", `${incidents.length} incident record(s) loaded from MongoDB.`);
   } catch (error) {
     console.error("Incident loading failed:", error);
-    list.innerHTML =
-      '<p class="empty-state">Unable to load incidents. Check that the ParcelHub API and MongoDB are running.</p>';
+    if (error.status === 403 || error.message.includes("Access denied")) {
+      list.innerHTML = `
+        <div class="rbac-restricted-box">
+          <h3>🔒 403 Forbidden: Access Denied</h3>
+          <p>${escapeHtml(error.message)}</p>
+        </div>
+      `;
+    } else {
+      list.innerHTML =
+        '<p class="empty-state">Unable to load incidents. Check that the ParcelHub API and MongoDB are running.</p>';
+    }
     setMessage("incidentListMessage", error.message);
   }
 }
@@ -564,6 +778,12 @@ function setupIncidentForm() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
+    const user = getCurrentUser();
+    if (user.role === "courier" || user.role === "employee") {
+      alert("Access Denied: Only Admin and Security roles can submit incident reports.");
+      return;
+    }
+
     const submitButton = form.querySelector('[type="submit"]');
     const message = $("incidentFormMessage");
     const formData = new FormData(form);
@@ -572,7 +792,7 @@ function setupIncidentForm() {
       parcel_tracking_code: String(formData.get("parcel_tracking_code") || "").trim(),
       incident_type: String(formData.get("incident_type") || ""),
       severity: String(formData.get("severity") || "medium"),
-      reported_by: String(formData.get("reported_by") || "").trim(),
+      reported_by: String(formData.get("reported_by") || user.email).trim(),
       description: String(formData.get("description") || "").trim()
     };
 
@@ -584,7 +804,7 @@ function setupIncidentForm() {
       await apiPost("/api/incidents", payload);
       message.textContent = "Incident saved successfully.";
       form.reset();
-      form.elements.reported_by.value = "security.desk";
+      form.elements.reported_by.value = user.role === "security" ? "security.desk" : user.email;
       form.elements.severity.value = "medium";
       await loadIncidents();
     } catch (error) {
@@ -605,4 +825,20 @@ function initIncidentPage() {
   loadIncidents();
 }
 
-document.addEventListener("DOMContentLoaded", initIncidentPage);
+async function startApp() {
+  setupRoleSwitcher();
+  setupScrollReveals();
+  setupInteractions();
+
+  const page = document.body.dataset.page;
+
+  if (page === "dashboard") await loadDashboard();
+  if (page === "parcels") await loadParcelPage();
+  if (page === "lockers") await loadLockerPage();
+  if (page === "users") await loadUsersPage();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  startApp();
+  initIncidentPage();
+});
