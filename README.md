@@ -2,147 +2,90 @@
 
 ## 1. Project Overview
 
-ParcelHub is a smart parcel and locker management system designed for modern tech parks. It helps manage incoming parcels, track recipient information, monitor smart locker availability, record parcel-related incidents, enforce role-based access control (RBAC), and manage the full parcel pickup lifecycle.
+ParcelHub is a smart parcel and locker management system designed for modern tech parks. It handles incoming parcels, recipient tracking, smart locker inventory, parcel exception reporting, database-authenticated login/logout sessions, strict role-based access control (RBAC), and the full parcel pickup lifecycle.
 
-The application provides a web interface connected to a backend API and database systems.
+The application features a responsive frontend connected to a FastAPI backend powered by MySQL (relational core) and MongoDB (NoSQL incident register).
 
 ## 2. Technology Stack
 
-- **Frontend:** HTML, CSS, JavaScript (Vanilla JS with interactive RBAC switcher)
-- **Backend:** Python, FastAPI
+- **Frontend:** HTML, CSS, JavaScript (Vanilla JS with token-authenticated sessions)
+- **Backend:** Python, FastAPI, Uvicorn
+- **Authentication & Security:** HMAC-SHA256 stateless session tokens, database password validation, inactive user blocking
 - **Relational Database:** MySQL
 - **NoSQL Database:** MongoDB
-- **API Documentation and Testing:** FastAPI Swagger UI
+- **API Documentation and Testing:** FastAPI Swagger UI (`/docs`)
 
 ## 3. Main Features
 
-### Dashboard
-Displays an overview of parcel activity and locker inventory, including total parcels, parcels ready for pickup, total lockers, and available lockers.
+### 1. Database-Validated Login & Session Management
+- **Dedicated Login Page (`login.html`):** Validates email and password directly against the `users` table in MySQL.
+- **Role from Database:** Roles are never selected from client-side dropdowns; the user's role is strictly derived from their authenticated database record.
+- **Account Inactivity Guard:** Inactive accounts (`account_status != 'active'`) are blocked from logging in with `HTTP 403 Forbidden`.
+- **Session Persistence & Logout:** Issues a signed bearer token stored in `localStorage`. Log out revokes the session and clears local credentials.
 
-### Parcel Management & Pickup Workflow
-Displays parcel tracking codes, descriptions, recipient information, assigned smart lockers, parcel status, and timestamps.
-- **Parcel Pickup Execution:** Authenticated users (Recipients/Employees, Admin, Security) can trigger parcel pickup.
-- When picked up, the system:
-  1. Updates `parcel_status` to `picked_up`.
-  2. Updates `picked_up_at` timestamp.
-  3. Updates delivery status to `picked_up` and logs `picked_up_at`.
-  4. Releases the associated locker assignment (`released_at` set to current timestamp).
-  5. Sets the associated locker status back to `available` so it can immediately be reused.
-  6. Executes atomically within a database transaction.
+### 2. Actual Role-Based Access Control (RBAC)
+Enforces granular access permissions across 4 distinct roles at the backend API level:
+- **Admin:** Full privileges across all modules (Users, Parcels, Lockers, Incidents, Pickup).
+- **Security:** Access to monitor parcels, lockers, and report/inspect incidents. Can assist with desk parcel pickups. Restricted from user account management (`HTTP 403`).
+- **Courier:** Restricted strictly to their assigned deliveries and locker statuses for drop-offs. Forbidden from incident management and customer parcel pickups (`HTTP 403`).
+- **Employee (Recipient):** Self-service role. Views **only parcels addressed to them** and executes pickup **only for their own parcels**. Forbidden from user records and incidents (`HTTP 403`).
 
-### Role-Based Access Control (RBAC)
-Enforces granular access permissions across 4 distinct roles:
-- **Admin:** Full access across all modules (Users, Parcels, Lockers, Incidents, Pickup).
-- **Security:** Access to Parcels, Lockers, Incident reporting/viewing, and desk parcel handover pickups. Forbidden from accessing User accounts.
-- **Courier:** Access to Parcels and Locker statuses for drop-off operations. Forbidden from incident management and customer pickups.
-- **Employee (Recipient):** Access to view their assigned parcels and execute self-service pickup for their own parcels. Forbidden from incident management and user management.
+### 3. Complete Parcel Pickup Workflow
+- **Recipient Ownership & Status Verification:** Employees can pick up parcels addressed to their user ID when the status is ready (`ready_for_pickup`, `stored`, or `received`).
+- **Duplicate Pickup Prevention:** If a parcel has already been collected, the backend rejects duplicate requests with `HTTP 400 Bad Request`.
+- **Atomic Database Transaction (`START TRANSACTION` ... `COMMIT`):**
+  1. Updates `parcels.parcel_status` to `'picked_up'` and records `picked_up_at = NOW()`.
+  2. Updates `deliveries.delivery_status` to `'picked_up'` with timestamp.
+  3. Releases the active locker assignment (`locker_assignments.released_at = NOW()`).
+  4. Restores locker availability (`lockers.locker_status = 'available'`).
+  5. Rolls back all changes if any query fails, guaranteeing data consistency.
 
-Authentication and role headers supported:
-- `X-User-Role`: `admin`, `security`, `courier`, `employee`
-- `X-User-Email`: e.g. `aarav.admin@example.com`
-- `Authorization`: `Bearer <role>` or `Bearer <email>`
-- In demo/testing environments, query parameters `?role=` and `?email=` can also be used directly in browser/curl.
+### 4. Smart Locker Management
+- Real-time locker inventory reflecting active parcel assignments.
+- Permitted roles (Admin & Security) can update locker availability or set maintenance status (`PATCH /api/lockers/{id}/status`).
 
-### Smart Locker Management
-Displays locker codes, locations, sizes, and current statuses (available, occupied, maintenance). Real-time status reflects active assignments and automatic release on pickup.
+## 4. Test & Demo Accounts
 
-### Incident Management
-Allows parcel-related incidents to be recorded and retrieved. Restricted to **Admin** and **Security** roles via RBAC. Incident creation validates parcel tracking codes against MySQL before saving in MongoDB.
+Use these pre-seeded accounts to test roles and verification:
 
-## 4. Database Design
+| Role | Email | Password | Allowed Capabilities |
+|---|---|---|---|
+| **Admin** | `aarav.admin@example.com` | `password123` | Full access (manage users, parcels, lockers, incidents, pickup) |
+| **Security** | `meera.security@example.com` | `password123` | Monitor parcels & lockers, report/view incidents, desk handovers |
+| **Courier** | `kiran.courier@example.com` | `password123` | View assigned deliveries, view lockers |
+| **Employee** | `ananya.employee@example.com` | `password123` | View own parcels, self-service pickup for own parcels |
+| **Inactive (Blocked)** | `rohan.inactive@example.com` | `password123` | **Blocked:** Login fails with `403 Forbidden: Account is inactive` |
 
-### MySQL
-Stores structured application data, including users, parcels, locker assignments, and smart lockers. Includes triggers and stored procedures (`db/21_pickup_workflow.sql`, `db/22_validate_assignments.sql`).
+*(On `login.html`, click any of the demo account pills to instantly auto-fill credentials).*
 
-### MongoDB
-Stores parcel incident reports in the `incidents` collection. MongoDB indexes support searches by parcel tracking code and incident status with creation time.
-
-## 5. Project Structure
-
-```text
-ParcelHub-FINAL/
-├── backend/
-│   ├── main.py
-│   ├── requirements.txt
-│   └── .env.example
-├── db/
-│   ├── 01_create_database.sql
-│   ├── 02_create_tables.sql
-│   ├── 03_constraints_indexes.sql
-│   ├── 04_seed_data.sql
-│   ├── 05_seed_lockers.sql
-│   ├── 06_seed_parcels.sql
-│   ├── 07_join_queries.sql
-│   ├── 08_seed_assignments.sql
-│   ├── 09_seed_deliveries.sql
-│   ├── 10_advanced_queries.sql
-│   ├── 18_stored_procedures.sql
-│   ├── 21_pickup_workflow.sql
-│   ├── 22_validate_assignments.sql
-│   └── ...
-├── frontend/
-│   ├── index.html
-│   ├── parcels.html
-│   ├── lockers.html
-│   ├── incidents.html
-│   ├── app.js
-│   └── style.css
-├── nosql/
-│   ├── collection.js
-│   ├── indexes.js
-│   ├── README.md
-│   └── sample_incidents.json
-└── README.md
-```
-
-## 6. Running the Application
-
-1. Configure the required database connection settings in `backend/.env`.
-2. Start MySQL and MongoDB.
-3. Import the SQL scripts in `db/` (e.g., `01_create_database.sql` through `09_seed_deliveries.sql`, `21_pickup_workflow.sql`).
-4. Install the Python dependencies: `pip install -r backend/requirements.txt`.
-5. Start the FastAPI backend: `uvicorn main:app --reload` from the `backend/` directory.
-6. Open `http://127.0.0.1:8000/docs` to access Swagger UI.
-7. Open `frontend/index.html` (e.g. via VS Code Live Server at `http://127.0.0.1:5500`).
-8. Use the **Role Selector** in the navigation bar to easily switch between Admin, Security, Courier, and Employee roles in the live demo.
-
-## 7. API Endpoints
+## 5. API Endpoints & RBAC Matrix
 
 | Method | Endpoint | RBAC Allowed Roles | Purpose |
 |---|---|---|---|
-| GET | `/health` | Public | Check API and MySQL connectivity |
-| POST | `/api/auth/login` | Public | Authenticate user email and retrieve role |
+| POST | `/api/auth/login` | Public | Authenticate user against MySQL and issue token |
+| POST | `/api/auth/logout` | Authenticated | Invalidate/log out current session |
 | GET | `/api/auth/me` | Authenticated | Retrieve profile and permissions of current user |
-| GET | `/api/users` | `admin` | Retrieve all users |
-| GET | `/api/parcels` | `admin`, `security`, `courier`, `employee` | Retrieve parcels (filtered by recipient for Employee role) |
-| POST | `/api/parcels/{parcel_id}/pickup` | `admin`, `security`, `employee` | Execute pickup workflow: updates status, timestamp & releases locker |
-| GET | `/api/lockers` | All authenticated roles | Retrieve smart lockers and availability |
-| GET | `/api/incidents` | `admin`, `security` | Retrieve incident reports |
-| GET | `/api/incidents/{incident_id}` | `admin`, `security` | Retrieve a specific incident |
-| POST | `/api/incidents` | `admin`, `security` | Create an incident after validating tracking code |
+| GET | `/api/users` | `admin` | Retrieve all user accounts (403 for other roles) |
+| GET | `/api/parcels` | All active authenticated | Retrieve parcels (scoped to own parcels for Employee, assigned for Courier) |
+| POST | `/api/parcels/{id}/pickup` | `admin`, `security`, `employee` | Execute pickup workflow: updates status, records timestamp & frees locker |
+| GET | `/api/lockers` | All active authenticated | Retrieve smart locker inventory and statuses |
+| PATCH | `/api/lockers/{id}/status` | `admin`, `security` | Update locker operational status (available/maintenance) |
+| GET | `/api/incidents` | `admin`, `security` | Retrieve incident reports from MongoDB (403 for others) |
+| POST | `/api/incidents` | `admin`, `security` | Report parcel incident in MongoDB after MySQL validation |
 
-## 8. Role-Based Access Control (RBAC) Matrix
+## 6. Running the Application
 
-| Endpoint | Admin | Security | Courier | Employee |
-|---|:---:|:---:|:---:|:---:|
-| `GET /api/users` | Allowed | Forbidden (403) | Forbidden (403) | Forbidden (403) |
-| `GET /api/parcels` | All Parcels | All Parcels | All Parcels | Own Parcels |
-| `POST /api/parcels/{id}/pickup` | Allowed | Allowed | Forbidden (403) | Own Parcels |
-| `GET /api/lockers` | Allowed | Allowed | Allowed | Allowed |
-| `GET /api/incidents` | Allowed | Allowed | Forbidden (403) | Forbidden (403) |
-| `POST /api/incidents` | Allowed | Allowed | Forbidden (403) | Forbidden (403) |
-
-## 9. Testing & Demo Instructions
-
-- **Testing RBAC in Swagger UI:**
-  - Enter `admin` in `X-User-Role` to access `/api/users` (returns `200 OK`).
-  - Enter `courier` in `X-User-Role` to call `/api/users` or `/api/incidents` (returns `403 Forbidden`).
-- **Testing Parcel Pickup in Swagger UI:**
-  - Send `POST /api/parcels/3/pickup` with `X-User-Role: admin`.
-  - Check response: status is updated to `picked_up`, timestamp is recorded, and locker assignment is released with locker code returned as available.
-  - Re-run the same request: returns `400 Bad Request` ("Parcel has already been picked up").
-- **Testing in Frontend UI:**
-  - Use the navigation bar role switcher to switch roles on the fly.
-  - Switch to **Employee (Ananya)**: only her parcels are displayed.
-  - Click **Pick Up 📦** on an eligible parcel: the status immediately changes to green `picked up`, the locker tag is released, and locker inventory increments available lockers.
-  - Navigate to **Incidents** while in Employee or Courier role: the system shows a clean RBAC access restriction notice. Switch to Security to report an incident.
+1. **Start MySQL and MongoDB:**
+   Ensure MySQL is running on port 3306 and MongoDB on port 27017.
+2. **Import SQL Seed Data:**
+   Run scripts in `db/` (e.g. `01_create_database.sql` through `09_seed_deliveries.sql`, `21_pickup_workflow.sql`).
+3. **Start the Backend:**
+   ```bash
+   cd backend
+   uvicorn main:app --reload
+   ```
+4. **Access the Application:**
+   Open `frontend/login.html` (e.g. via VS Code Live Server at `http://127.0.0.1:5500/frontend/login.html`).
+   Sign in with any of the demo accounts listed above.
+5. **Interactive Swagger API Docs:**
+   Open `http://127.0.0.1:8000/docs`. Click **Authorize** at the top right to paste a Bearer token or test login.

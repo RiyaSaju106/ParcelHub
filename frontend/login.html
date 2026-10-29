@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101010">
+  <title>Sign In — ParcelHub</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body data-page="login">
+  <header class="nav">
+    <a class="wordmark" href="index.html">
+      <span class="logo-mark">P</span> parcelhub<span class="orange">.</span>
+    </a>
+    <span class="nav-tag">AUTHENTICATION / 01</span>
+  </header>
+
+  <main class="login-wrapper">
+    <div class="login-container reveal">
+      <div class="login-header">
+        <span class="eyebrow">SECURITY ACCESS</span>
+        <h1>Sign in to<br><span class="orange">ParcelHub.</span></h1>
+        <p>Authenticate with your registered tech park credentials to access parcels and smart lockers.</p>
+      </div>
+
+      <div id="loginErrorMessage" class="login-error-alert" style="display:none;" role="alert"></div>
+
+      <form id="loginForm" class="login-form">
+        <label class="login-field">
+          <span>EMAIL ADDRESS</span>
+          <input type="email" id="loginEmail" name="email" required autocomplete="email" placeholder="name@example.com">
+        </label>
+
+        <label class="login-field">
+          <span>PASSWORD</span>
+          <input type="password" id="loginPassword" name="password" required autocomplete="current-password" placeholder="••••••••">
+        </label>
+
+        <button type="submit" id="loginSubmitBtn" class="login-submit-btn">
+          Sign In <span>↗</span>
+        </button>
+      </form>
+
+      <div class="demo-accounts-panel">
+        <span class="demo-panel-title">DEMO TEST ACCOUNTS (CLICK TO AUTO-FILL):</span>
+        <div class="demo-account-buttons">
+          <button type="button" class="demo-pill" onclick="quickFill('aarav.admin@example.com', 'password123')">
+            <span class="pill-role admin">ADMIN</span>
+            <span class="pill-name">Aarav Sharma</span>
+          </button>
+          <button type="button" class="demo-pill" onclick="quickFill('meera.security@example.com', 'password123')">
+            <span class="pill-role security">SECURITY</span>
+            <span class="pill-name">Meera Nair</span>
+          </button>
+          <button type="button" class="demo-pill" onclick="quickFill('kiran.courier@example.com', 'password123')">
+            <span class="pill-role courier">COURIER</span>
+            <span class="pill-name">Kiran Rao</span>
+          </button>
+          <button type="button" class="demo-pill" onclick="quickFill('ananya.employee@example.com', 'password123')">
+            <span class="pill-role employee">EMPLOYEE</span>
+            <span class="pill-name">Ananya Iyer</span>
+          </button>
+          <button type="button" class="demo-pill inactive-pill" onclick="quickFill('rohan.inactive@example.com', 'password123')" title="Click to test account-status blocking">
+            <span class="pill-role inactive">INACTIVE</span>
+            <span class="pill-name">Rohan (Blocked)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <a class="wordmark" href="index.html"><span class="logo-mark">P</span> parcelhub<span class="orange">.</span></a>
+    <span>SMART PARCEL & LOCKER MANAGEMENT</span>
+    <span class="footer-note">RBAC ENFORCED &bull; FASTAPI</span>
+  </footer>
+
+  <script>
+    function quickFill(email, pwd) {
+      document.getElementById('loginEmail').value = email;
+      document.getElementById('loginPassword').value = pwd;
+      document.getElementById('loginErrorMessage').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
